@@ -16,37 +16,61 @@ class Ponto:
         self.y = y
 # Classe para calcular distâncias
 class CalculadoraDistancia:
+    frame = None
+    
     @staticmethod
-    def calcular_2d(ponto1, ponto2):
+    def setFrame(image):
+        frame = image
+    @staticmethod
+    def calcular_2d(ponto1, ponto2,frame):
         """
         Calcula a distância 2D entre dois pontos.
         :param ponto1: Coordenadas (x, y) do primeiro ponto.
         :param ponto2: Coordenadas (x, y) do segundo ponto.
         :return: Distância em unidades normalizadas.
         """
-        ponto1 = Ponto(ponto1[0],ponto1[1])
-        ponto2 = Ponto(ponto2[0],ponto2[1])
+        # Suponha que ponto1 e ponto2 sejam definidos como tuplas de coordenadas
+        ponto1 = Ponto(ponto1[0], ponto1[1])
+        ponto2 = Ponto(ponto2[0], ponto2[1])
         
-        distancia_x = abs(ponto1.x-ponto2.x)
-        distancia_y = abs(ponto1.y-ponto2.y)
+        # Calculando o ponto central (meio entre ponto1 e ponto2)
+        pontoCentral_x = (ponto1.x + ponto2.x) / 2
+        pontoCentral_y = (ponto1.y + ponto2.y) / 2
         
-        pontoCentral = Ponto(((ponto1.x + ponto2.x) / 2),((ponto1.y + ponto2.y) / 2))
-        
-        angulo = math.atan2((ponto1.y - ponto2.y),(ponto1.x-ponto2.x))
-        angulo_oposto = angulo + math.pi
-        
-        distancia_adicional = 100
-        # Calculando as novas coordenadas (ponto oposto)
-        novo_ponto_x = abs(pontoCentral.x * math.cos(angulo_oposto))
-        novo_ponto_y = abs(pontoCentral.y * math.sin(angulo_oposto))
+         # Convertendo para coordenadas em pixels (multiplicando pela largura e altura da imagem)
+        pontoCentral_x_px = int(pontoCentral_x * frame.shape[1])
+        pontoCentral_y_px = int(pontoCentral_y * frame.shape[0])
+
+        # Calculando a distância entre os pontos
+        distancia_x = abs(ponto1.x - ponto2.x)
+        distancia_y = abs(ponto1.y - ponto2.y)
+
+        # Calculando o vetor direção da linha entre os dois pontos
+        dir_x = ponto2.x - ponto1.x
+        dir_y = ponto2.y - ponto1.y
+
+        # Normalizando o vetor de direção
+        length = math.sqrt(dir_x ** 2 + dir_y ** 2)
+        dir_x /= length
+        dir_y /= length
+
+        if ponto1.x > ponto2.x:
+            # Calculando o vetor perpendicular à linha (direção "para cima")
+            perp_x = dir_y
+            perp_y = -dir_x
+        else:
+            # Calculando o vetor perpendicular à linha (direção "para cima")
+            perp_x = -dir_y
+            perp_y = dir_x
+
+        scale = math.sqrt((ponto2.x - perp_x)**2 + (ponto2.y - perp_y)**2)
+        # Deslocando o ponto central para cima (ajustando o valor do deslocamento)
+        deslocamento = -0.15  # Ajuste da distância para o deslocamento para cima
+        novo_ponto_x = pontoCentral_x_px + int(scale*perp_x * deslocamento * image.shape[1])
+        novo_ponto_y = pontoCentral_y_px + int(scale*perp_y * deslocamento * image.shape[0])
+        print(f"Escala: {scale}")
         ponto_referencia = Ponto(novo_ponto_x,novo_ponto_y)
-        # Vetor diretor do segmento
-        # dx = x2 - x1
-        # dy = y2 - y1
-        
-        # Vetor perpendicular
-        # perp_dx = -dy
-        # perp_dy = dx
+
         
         return math.sqrt((ponto2.x - ponto1.x)**2 + (ponto2.y - ponto1.y)**2),ponto_referencia
 
@@ -57,6 +81,7 @@ class Dedo:
         self.ponta = ponta
         self.dobradiça = dobradiça
         self.metacarpo = metacarpo
+        self.frame = image
 
     def distancia_para(self, outro_ponto, ponto_referido="ponta"):
         """
@@ -76,7 +101,7 @@ class Dedo:
             raise ValueError(f"Ponto referido '{ponto_referido}' não é válido. Use 'ponta', 'dobradiça' ou 'metacarpo'.")
 
         ponto_atual = pontos[ponto_referido]
-        return CalculadoraDistancia.calcular_2d(ponto_atual, ponto_destino)
+        return CalculadoraDistancia.calcular_2d(ponto_atual, ponto_destino,self.frame)
 
 # Classe para representar uma mão com seus dedos
 class Mao:
@@ -181,11 +206,9 @@ with mp_hands.Hands(
 
                 # distancia_2 = mao.medio.distancia_para(mao.polegar.ponta, "ponta")
                 # distancia_2 = round(distancia_2*100,1)
-                
+                CalculadoraDistancia.setFrame(image=image)
                 distancia,ponto = mao.indicador.distancia_para(mao.mindinho.metacarpo, "metacarpo")
                 winWidth,winHeight = (image.shape[1],image.shape[0])
-                ponto.x = int(round(ponto.x*winWidth))
-                ponto.y = int(round(ponto.y*winHeight))
                 cv2.circle(image, (ponto.x, ponto.y), 5, (0, 255, 0), -1)
                 # ref_metacarpo = (/2)
                 # y - ref_metacarpo
